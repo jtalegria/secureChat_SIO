@@ -17,7 +17,10 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.Provider;
 import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Scanner;
@@ -26,6 +29,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class SecureChat2 {
 
@@ -40,7 +44,7 @@ public class SecureChat2 {
     static int registerLimit = 1;
     
     public static void main(String[] args) throws IOException, InterruptedException, NoSuchAlgorithmException, 
-            NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+            NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
         socket = new Socket("localhost", 1025);
         System.out.println(" >> Conexão estabelecida no porto 1025.");
 
@@ -51,6 +55,7 @@ public class SecureChat2 {
         out = new PrintStream(output);
         inStream = socket.getInputStream();
 
+        
         while (true) {
             menu();
 
@@ -62,9 +67,35 @@ public class SecureChat2 {
                 }
 
                 if (inStream.available() != 0) {
-                    l = inStream.read(buffer, 0, buffer.length);
-                    System.out.write(buffer, 0, l);
-                    System.out.print("\n");
+                    //l = inStream.read(buffer, 0, buffer.length);
+                    //System.out.write(buffer, 0, l);
+                    //System.out.print("\n");
+                    
+                    
+                    JsonReader jReader = new JsonReader(in);
+                    JsonElement jElement = new JsonParser().parse(jReader);
+                    JsonObject jObject = jElement.getAsJsonObject();
+                    
+                    if (jObject.get("code").getAsString().equals("DESede")) {
+                        //DECIFRAR DES
+                        
+                        //System.out.println();
+                        System.out.println("\n>> Recebeu uma mensagem nova (Cifrada Simetricamente)!");
+                        System.out.print("Password para ver mensagem: ");
+                        sc.nextLine();
+                        String pwd = sc.nextLine();
+                        
+                        byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
+                        
+                        byte[] salt = Base64.getDecoder().decode(jObject.get("salt").getAsString());
+                        String msgRcv = new String(DESede.decrypt(pwd, salt, msgToDecipher));
+                        
+                        System.out.print(">> Mensagem: " + msgRcv);
+                        break;
+                    }
+                    //send msg {"dst":"JTA","msg":"BK/5Sk1FoXk=","code":"DESede"}
+                    
+                    
                 }
                 Thread.currentThread().sleep(200); // 100 milis
             }
@@ -85,7 +116,7 @@ public class SecureChat2 {
     }
 
     public static void menuInicial() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, 
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
         boolean quit = false;
         int menuItem;
 
@@ -153,12 +184,12 @@ public class SecureChat2 {
     }
 
     public static void sendSelections() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, 
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
         int escolha;
         System.out.println("[1] Enviar a todos os utilizadores");
         System.out.println("[2] Sem encriptacao para um cliente");
         System.out.println("[3] Encriptacao Simetrica");
-        System.out.print(">> Selecione o tipo de envio:");
+        System.out.print(">> Selecione o tipo de envio: ");
 
         escolha = sc.nextInt();
         System.out.println("");
@@ -221,24 +252,30 @@ public class SecureChat2 {
     }
     
     public static void sendSimetricCipher() throws NoSuchAlgorithmException, NoSuchPaddingException, 
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException{
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException, Exception{
         Scanner scanner = new Scanner(System.in);
+        
+        byte[] salt = getSalt().getBytes();
+        int keyLen = 192;  //24 bytes * 8 bits = 192 (tamanho da chave-bits)
+        String code = "DESede";
+        
         System.out.print("Enviar mensagem para: ");
         String dst = scanner.nextLine();
+        
+        System.out.print("Password: ");
+        String pwdChat = scanner.nextLine();
 
         System.out.print("Mensagem: ");
         String msg = scanner.nextLine();
         
         byte[] msgToByteArray = msg.getBytes();
-        KeyGenerator kg = KeyGenerator.getInstance("DES");
-        SecretKey sk = kg.generateKey();
+        //byte[] chaveDerivada = KeyDerivation.deriveKey(pwdChat, salt, keyLen);
+        String msgCifrada = Base64.getEncoder().encodeToString(DESede.encrypt(pwdChat, salt, msgToByteArray));
         
-        byte[] textoCifradoArray = CipherDES.cypherMsg(msgToByteArray, sk);
-        String textoCifradoString = Base64.getEncoder().encodeToString(textoCifradoArray);
-        
-        //String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + msg + "\",\"code\":\"" + code + "\"}";
+        String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + msgCifrada + "\",\"code\":\"" + code + "\""
+                + ",\"salt\":\"" + Base64.getEncoder().encodeToString(salt) + "\"}";
 
-        String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + textoCifradoString + "\"}";
+       
         out.println(s1);
         
         if (in.readLine().equals("{\"error\":\"ok\"}")) {
@@ -351,4 +388,11 @@ public class SecureChat2 {
         return clientsListInverted;
     }
 
+    public static String getSalt() throws Exception {
+
+        SecureRandom sr = SecureRandom.getInstance("SHA1PRNG");
+        byte[] salt = new byte[20];
+        sr.nextBytes(salt);
+        return new String(salt);
+    }
 }
