@@ -15,28 +15,17 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
 import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Provider;
-import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 import java.util.Scanner;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
-public class SecureChat2_1 {
+public class SecureChat2 {
 
     // Classe cliente
     static Scanner sc = new Scanner(System.in);
@@ -47,8 +36,8 @@ public class SecureChat2_1 {
     static byte[] buffer = new byte[1024];
     static int l;
     static int registerLimit = 1;
-    
-    public static void main(String[] args) throws IOException, InterruptedException, NoSuchAlgorithmException, 
+
+    public static void main(String[] args) throws IOException, InterruptedException, NoSuchAlgorithmException,
             NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
         socket = new Socket("localhost", 1025);
         System.out.println(" >> Conexão estabelecida no porto 1025.");
@@ -60,7 +49,6 @@ public class SecureChat2_1 {
         out = new PrintStream(output);
         inStream = socket.getInputStream();
 
-        
         while (true) {
             menu();
 
@@ -75,31 +63,29 @@ public class SecureChat2_1 {
                     //l = inStream.read(buffer, 0, buffer.length);
                     //System.out.write(buffer, 0, l);
                     //System.out.print("\n");
-                     
+
                     JsonReader jReader = new JsonReader(in);
                     JsonElement jElement = new JsonParser().parse(jReader);
                     JsonObject jObject = jElement.getAsJsonObject();
-                    
+
                     if (jObject.get("code").getAsString().equals("DESede")) {
                         //DECIFRAR DES
-                        
+
                         //System.out.println();
                         System.out.println("\n>> Recebeu uma mensagem nova (Cifrada Simetricamente)!");
                         System.out.print("Password para ver mensagem: ");
                         sc.nextLine();
                         String pwd = sc.nextLine();
-                        
+
                         byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
-                        
+
                         byte[] salt = Base64.getDecoder().decode(jObject.get("salt").getAsString());
                         String msgRcv = new String(DESede.decrypt(pwd, salt, msgToDecipher));
-                        
+
                         System.out.print(">> Mensagem: " + msgRcv);
                         break;
                     }
-                    //send msg {"dst":"JTA","msg":"BK/5Sk1FoXk=","code":"DESede"}
-                    
-                    
+
                 }
                 Thread.currentThread().sleep(200); // 100 milis
             }
@@ -119,7 +105,7 @@ public class SecureChat2_1 {
         System.out.print("Insira a opcao: ");
     }
 
-    public static void menuInicial() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, 
+    public static void menuInicial() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException,
             InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
         boolean quit = false;
         int menuItem;
@@ -150,10 +136,10 @@ public class SecureChat2_1 {
 
         if (registerLimit == 1) {
             Scanner scanner = new Scanner(System.in);
-            
+
             KeyPairGerador.generateKeys();
             String publicK = Base64.getEncoder().encodeToString(KeyPairGerador.getPublicKey().getEncoded());
-            
+
             System.out.print("Nome Cliente: ");
             String cliente = scanner.nextLine();
 
@@ -172,13 +158,12 @@ public class SecureChat2_1 {
                 System.out.println("");
             }
             registerLimit++;
-        }
-        else{
+        } else {
             System.out.println("Função registar apenas disponivel 1 vez");
         }
     }
 
-    public static void sendSelections() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, 
+    public static void sendSelections() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException,
             InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
         int escolha;
         System.out.println("[1] Enviar a todos os utilizadores");
@@ -209,7 +194,7 @@ public class SecureChat2_1 {
                 break;
         }
     }
-    
+
     public static void sendToAll() throws IOException {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Mensagem: ");
@@ -225,105 +210,121 @@ public class SecureChat2_1 {
         }
     }
 
-    public static void sendNoCipher() throws IOException{
+    public static void sendNoCipher() throws IOException {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Enviar mensagem para: ");
         String dst = scanner.nextLine();
 
         System.out.print("Mensagem: ");
         String msg = scanner.nextLine();
-        
+
         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + msg + "\"}";
-        
+
         out.println(s1);
 
         JsonReader jReader = new JsonReader(in);
         JsonElement jElement = new JsonParser().parse(jReader);
         JsonObject jObject = jElement.getAsJsonObject();
-        
-        if(jObject.get("error").getAsString().equals("ok")){
+
+        if (jObject.get("error").getAsString().equals("ok")) {
             System.out.println(">> Mensagem Enviada");
         }
-        
+
 //        if (in.readLine().equals("{\"error\":\"ok\"}")) {
 //            System.out.println(">> Mensagem Enviada");
 //        }
     }
-    
-    public static void sendSimetricCipher() throws NoSuchAlgorithmException, NoSuchPaddingException, 
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException, Exception{
+
+    public static void sendSimetricCipher() throws NoSuchAlgorithmException, NoSuchPaddingException,
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException, Exception {
         Scanner scanner = new Scanner(System.in);
-        
+
         byte[] salt = getSalt().getBytes();
         int keyLen = 192;  //24 bytes * 8 bits = 192 (tamanho da chave-bits)
         String code = "DESede";
-        
+
         System.out.print("Enviar mensagem para: ");
         String dst = scanner.nextLine();
-        
+
         System.out.print("Password: ");
         String pwdChat = scanner.nextLine();
 
         System.out.print("Mensagem: ");
         String msg = scanner.nextLine();
-        
+
         byte[] msgToByteArray = msg.getBytes();
         //byte[] chaveDerivada = KeyDerivation.deriveKey(pwdChat, salt, keyLen);
         String msgCifrada = Base64.getEncoder().encodeToString(DESede.encrypt(pwdChat, salt, msgToByteArray));
-        
+
         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + msgCifrada + "\",\"code\":\"" + code + "\""
                 + ",\"salt\":\"" + Base64.getEncoder().encodeToString(salt) + "\"}";
 
-       
         out.println(s1);
-        
+
         if (in.readLine().equals("{\"error\":\"ok\"}")) {
             System.out.println(">> Mensagem Enviada");
         }
     }
- 
+
     public static void sendHybridCipher() throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidKeySpecException, IOException {
         Scanner scanner = new Scanner(System.in);
-        
+
         System.out.print("Enviar mensagem para: ");
         String dst = scanner.nextLine();
 
         System.out.print("Mensagem: ");
         String msg = scanner.nextLine();
         byte[] msgToByteArray = msg.getBytes();
-
-        //String msgCifrada = Base64.getEncoder().encodeToString(DESede.encryptSecureRandom(msgToByteArray));
-     
-        out.println("{\"command\":\"list\",\"id\":\"" + dst + "\"}");
-      
-        String serverMessage = in.readLine();
-        System.out.println(serverMessage);
-
-        JsonParser jsonParser = new JsonParser();
-        JsonObject jObject = (JsonObject) jsonParser.parse(serverMessage);
-        JsonArray jsonArr = jObject.getAsJsonArray("result");
         
-        Gson googleJson = new Gson();
-        ArrayList jsonObjList = googleJson.fromJson(jsonArr, ArrayList.class);
-        System.out.println("List size is : " + jsonObjList.size());
-        System.out.println("List Elements are  : " + jsonObjList.toString());
-
+        //1) Cifrar a mensagem com a chave simetrica
+        String msgCifrada = Base64.getEncoder().encodeToString(DES.cipherMsg(msgToByteArray));
+        
        
-        //PARSE
-        String nomeDestinatario = null;
-        String publicKeyDestinatario = null;
-        String string[] = jsonObjList.toString().split("\"");
-        for (String y : string) {
-            try {
-                String[] temp = y.split(",");
-                nomeDestinatario=temp[0];
-                publicKeyDestinatario=temp[1].trim();
-            } catch (Exception e) {
+        JsonReader jReader = new JsonReader(in);
+        JsonElement jElement = new JsonParser().parse(jReader);
+        JsonObject jObject = jElement.getAsJsonObject();
+
+        out.println("{\"command\":\"list\",\"id\":\"" + dst + "\"}");
+
+        if (jObject.get("error").getAsString().equals("ok")) {
+            //Cliente que se quer enviar a mensagem EXISTE
+            String serverMessage = in.readLine();
+            System.out.println(serverMessage);
+
+            JsonParser jsonParser = new JsonParser();
+            JsonObject jObject2 = (JsonObject) jsonParser.parse(serverMessage);
+            JsonArray jsonArr = jObject2.getAsJsonArray("result");
+
+            Gson googleJson = new Gson();
+            ArrayList jsonObjList = googleJson.fromJson(jsonArr, ArrayList.class);
+
+            //PARSE
+            String nomeDestinatario = null;
+            String publicKeyDestinatario = null;
+            String string[] = jsonObjList.toString().split("\"");
+            for (String y : string) {
+                try {
+                    String[] temp = y.split(",");
+                    nomeDestinatario = temp[0];
+                    publicKeyDestinatario = temp[1].trim();
+                } catch (Exception e) {
+                }
             }
+
+            //nomeDestinatario.substring(6);
+            publicKeyDestinatario.substring(10, publicKeyDestinatario.lastIndexOf('}'));
+
+            if (nomeDestinatario.substring(6).equals(dst)) {
+                //Utilizador introduzido existe 
+                System.out.println("Somos iguais!");
+            }
+        } else {
+            //Cliente que se quer enviar a mensagem NAO existe
         }
+
         
-        nomeDestinatario.substring(6);
-        publicKeyDestinatario.substring(10, publicKeyDestinatario.lastIndexOf('}'));
+        
+        
         
 //        String[] firstSplit = jsonObjList.toString().split(", ");
 //        
@@ -343,10 +344,6 @@ public class SecureChat2_1 {
 //        for(int i=0; i<firstSplit.length;i++){
 //            firstSpli
 //        }
-        
-        
-        
-
 //        JsonArray jArray = jObject.get("result").getAsJsonArray();
 //        
 //        for (int i = 0; i < jArray.size(); i++) {
@@ -355,8 +352,6 @@ public class SecureChat2_1 {
 //            PublicKey pKey = childJArray.get("publicKey").getAsString();
 //            
 //        }
-
-        
 //        
 //        if (serverMessage.equals("{\"error\":\"ok\",\"result\":[]}")) {
 //            System.out.println(">> Sem clientes registados");
