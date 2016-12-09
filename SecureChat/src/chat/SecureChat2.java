@@ -19,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Scanner;
 import javax.crypto.BadPaddingException;
@@ -74,6 +75,7 @@ public class SecureChat2 {
                         //System.out.println();
                         System.out.println("\n>> Recebeu uma mensagem nova (Cifrada Simetricamente)!");
                         System.out.print("Password para ver mensagem: ");
+                        
                         sc.nextLine();
                         String pwd = sc.nextLine();
 
@@ -82,7 +84,16 @@ public class SecureChat2 {
                         byte[] salt = Base64.getDecoder().decode(jObject.get("salt").getAsString());
                         String msgRcv = new String(DESede.decrypt(pwd, salt, msgToDecipher));
 
-                        System.out.print(">> Mensagem: " + msgRcv);
+                        byte[] newMAC = HMACsignature.calculateRFC2104HMAC(msgRcv, pwd);
+                        byte[] sendedMAC = Base64.getDecoder().decode(jObject.get("HMAC").getAsString());
+                        
+                        if(Arrays.equals(newMAC,sendedMAC)){
+                            System.out.print(">> Mensagem: " + msgRcv);
+                        }
+                        else{
+                            System.out.println("Erro!");
+                        }
+                        
                         break;
                     }
 
@@ -137,13 +148,17 @@ public class SecureChat2 {
         if (registerLimit == 1) {
             Scanner scanner = new Scanner(System.in);
 
-            KeyPairGerador.generateKeys();
-            String publicK = Base64.getEncoder().encodeToString(KeyPairGerador.getPublicKey().getEncoded());
+            KeyPairGerador parDeChaves = new KeyPairGerador(1024);
+            parDeChaves.createKeys();
+            byte[] publicKey = parDeChaves.getPublicKey().getEncoded();
+            
+            
+            //String publicK = Base64.getEncoder().encodeToString(KeyPairGerador.getPublicKey().getEncoded());
 
             System.out.print("Nome Cliente: ");
             String cliente = scanner.nextLine();
 
-            String s1 = "{\"command\":\"register\",\"src\":\"" + cliente + "\",\"publicKey\":\"" + publicK + "\"}";
+            String s1 = "{\"command\":\"register\",\"src\":\"" + cliente + "\",\"publicKey\":\"" + publicKey + "\"}";
             out.println(s1);
 
             JsonReader jReader = new JsonReader(in);
@@ -253,11 +268,14 @@ public class SecureChat2 {
         String msg = scanner.nextLine();
 
         byte[] msgToByteArray = msg.getBytes();
+        
         //byte[] chaveDerivada = KeyDerivation.deriveKey(pwdChat, salt, keyLen);
         String msgCifrada = Base64.getEncoder().encodeToString(DESede.encrypt(pwdChat, salt, msgToByteArray));
-
+        String msgMAC = Base64.getEncoder().encodeToString(HMACsignature.calculateRFC2104HMAC(msg, pwdChat));
+        
         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + msgCifrada + "\",\"code\":\"" + code + "\""
-                + ",\"salt\":\"" + Base64.getEncoder().encodeToString(salt) + "\"}";
+                + ",\"salt\":\"" + Base64.getEncoder().encodeToString(salt) + "\""
+                + ",\"HMAC\":\"" + msgMAC + "\"}";
 
         out.println(s1);
 
@@ -473,7 +491,6 @@ public class SecureChat2 {
     }
 
     public static String getSalt() throws Exception {
-
         SecureRandom sr = SecureRandom.getInstance("SHA1PRNG");
         byte[] salt = new byte[20];
         sr.nextBytes(salt);

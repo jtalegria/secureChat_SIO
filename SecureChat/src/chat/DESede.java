@@ -3,6 +3,7 @@ package chat;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -28,5 +29,15 @@ public class DESede {
         Cipher cipher = Cipher.getInstance("DESede/ECB/PKCS5Padding");
         cipher.init(Cipher.DECRYPT_MODE, desKey);
         return cipher.doFinal(encryptedText);
+    }
+    
+    public static byte[] encryptSecureRandom(byte[] plaintext) throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidKeySpecException {
+        byte[] bytesRandom = new byte[20];
+        SecureRandom.getInstanceStrong().nextBytes(bytesRandom);
+        
+        SecretKey desKey = SecretKeyFactory.getInstance("DES").generateSecret(new DESedeKeySpec(bytesRandom));
+        Cipher cipher = Cipher.getInstance("DES");
+        cipher.init(Cipher.ENCRYPT_MODE, desKey);
+        return cipher.doFinal(plaintext);
     }
 }
