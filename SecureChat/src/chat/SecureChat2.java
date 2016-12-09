@@ -1,6 +1,8 @@
 package chat;
 
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -21,8 +23,11 @@ import java.security.Provider;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.Scanner;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -31,7 +36,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-public class SecureChat2 {
+public class SecureChat2_1 {
 
     // Classe cliente
     static Scanner sc = new Scanner(System.in);
@@ -70,8 +75,7 @@ public class SecureChat2 {
                     //l = inStream.read(buffer, 0, buffer.length);
                     //System.out.write(buffer, 0, l);
                     //System.out.print("\n");
-                    
-                    
+                     
                     JsonReader jReader = new JsonReader(in);
                     JsonElement jElement = new JsonParser().parse(jReader);
                     JsonObject jObject = jElement.getAsJsonObject();
@@ -144,21 +148,16 @@ public class SecureChat2 {
     public static void registar() throws IOException, NoSuchAlgorithmException {
         //TODO criar par de chaves para cada novo cliente
 
-        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(1024);
-        
-        KeyPair pair = keyGen.generateKeyPair();
-        
-        PrivateKey priv = pair.getPrivate();
-        PublicKey pub = pair.getPublic();
-        
-        
         if (registerLimit == 1) {
             Scanner scanner = new Scanner(System.in);
+            
+            KeyPairGerador.generateKeys();
+            String publicK = Base64.getEncoder().encodeToString(KeyPairGerador.getPublicKey().getEncoded());
+            
             System.out.print("Nome Cliente: ");
             String cliente = scanner.nextLine();
 
-            String s1 = "{\"command\":\"register\",\"src\":\"" + cliente + "\"}";
+            String s1 = "{\"command\":\"register\",\"src\":\"" + cliente + "\",\"publicKey\":\"" + publicK + "\"}";
             out.println(s1);
 
             JsonReader jReader = new JsonReader(in);
@@ -168,11 +167,7 @@ public class SecureChat2 {
             if (jObject.get("error").getAsString().equals("ok")) {
                 System.out.println(">> O cliente " + cliente + " foi registado com sucesso.");
                 System.out.println("");
-            } //        if (in.readLine().equals("{\"error\":\"ok\"}")) {
-            //            System.out.println(">> O cliente " + cliente + " foi registado com sucesso.");
-            //            System.out.println("");
-            //        } 
-            else {
+            } else {
                 System.out.println(">> Cliente já registado. Considere outro nome.");
                 System.out.println("");
             }
@@ -189,6 +184,7 @@ public class SecureChat2 {
         System.out.println("[1] Enviar a todos os utilizadores");
         System.out.println("[2] Sem encriptacao para um cliente");
         System.out.println("[3] Encriptacao Simetrica");
+        System.out.println("[4] Encriptacao Hibrida");
         System.out.print(">> Selecione o tipo de envio: ");
 
         escolha = sc.nextInt();
@@ -203,6 +199,9 @@ public class SecureChat2 {
                 break;
             case 3:
                 sendSimetricCipher();
+                break;
+            case 4:
+                sendHybridCipher();
                 break;
             default:
                 System.out.println(">> Opcao Invalida, repita.");
@@ -282,7 +281,97 @@ public class SecureChat2 {
             System.out.println(">> Mensagem Enviada");
         }
     }
-    
+ 
+    public static void sendHybridCipher() throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidKeySpecException, IOException {
+        Scanner scanner = new Scanner(System.in);
+        
+        System.out.print("Enviar mensagem para: ");
+        String dst = scanner.nextLine();
+
+        System.out.print("Mensagem: ");
+        String msg = scanner.nextLine();
+        byte[] msgToByteArray = msg.getBytes();
+
+        //String msgCifrada = Base64.getEncoder().encodeToString(DESede.encryptSecureRandom(msgToByteArray));
+     
+        out.println("{\"command\":\"list\",\"id\":\"" + dst + "\"}");
+      
+        String serverMessage = in.readLine();
+        System.out.println(serverMessage);
+
+        JsonParser jsonParser = new JsonParser();
+        JsonObject jObject = (JsonObject) jsonParser.parse(serverMessage);
+        JsonArray jsonArr = jObject.getAsJsonArray("result");
+        
+        Gson googleJson = new Gson();
+        ArrayList jsonObjList = googleJson.fromJson(jsonArr, ArrayList.class);
+        System.out.println("List size is : " + jsonObjList.size());
+        System.out.println("List Elements are  : " + jsonObjList.toString());
+
+       
+        //PARSE
+        String nomeDestinatario = null;
+        String publicKeyDestinatario = null;
+        String string[] = jsonObjList.toString().split("\"");
+        for (String y : string) {
+            try {
+                String[] temp = y.split(",");
+                nomeDestinatario=temp[0];
+                publicKeyDestinatario=temp[1].trim();
+            } catch (Exception e) {
+            }
+        }
+        
+        nomeDestinatario.substring(6);
+        publicKeyDestinatario.substring(10, publicKeyDestinatario.lastIndexOf('}'));
+        
+//        String[] firstSplit = jsonObjList.toString().split(", ");
+//        
+//        for(int i = 0; i<firstSplit.length; i++){
+//            System.out.println(firstSplit[i]);
+//        }
+//        
+//        System.out.println("-------");
+//        String[] secondSplit = Arrays.toString(firstSplit).split("src=");
+//        
+//        for(int i = 0; i<secondSplit.length; i++){
+//            System.out.println(secondSplit[i]);
+//        }
+//        
+//        System.out.println("....");
+//        
+//        for(int i=0; i<firstSplit.length;i++){
+//            firstSpli
+//        }
+        
+        
+        
+
+//        JsonArray jArray = jObject.get("result").getAsJsonArray();
+//        
+//        for (int i = 0; i < jArray.size(); i++) {
+//            JsonObject childJArray = jArray.getAsJsonObject();
+//            String nome = childJArray.get("src").getAsString();
+//            PublicKey pKey = childJArray.get("publicKey").getAsString();
+//            
+//        }
+
+        
+//        
+//        if (serverMessage.equals("{\"error\":\"ok\",\"result\":[]}")) {
+//            System.out.println(">> Sem clientes registados");
+//        }
+//        
+//        
+//        if (jObject.get("error").getAsString().equals("ok")) {
+//            System.out.println(">> O cliente " + cliente + " foi registado com sucesso.");
+//            System.out.println("");
+//        } else {
+//            System.out.println(">> Cliente já registado. Considere outro nome.");
+//            System.out.println("");
+//        }
+    }
+
     public static void printClients() throws IOException {
         out.print("{\"command\":\"list\"}");
         ArrayList<String> tmpList = new ArrayList<String>();
