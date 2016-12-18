@@ -1,8 +1,5 @@
 package chat;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -10,15 +7,15 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 
 
-public class KeyPairGerador {
+public class KeyPairDHGenerator {
 
     private KeyPairGenerator keyGen;
     private KeyPair pair;
     private PrivateKey privateKey;
     private PublicKey publicKey;
     
-    public KeyPairGerador(int keylength) throws NoSuchAlgorithmException{
-        this.keyGen = KeyPairGenerator.getInstance("RSA");
+    public KeyPairDHGenerator(int keylength) throws NoSuchAlgorithmException{
+        this.keyGen = KeyPairGenerator.getInstance("DH");
         this.keyGen.initialize(keylength);
     }
     

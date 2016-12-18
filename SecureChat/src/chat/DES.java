@@ -11,35 +11,37 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class DES {
-
-    public static byte[] cipherMsg(byte[] msgToCipher) throws IllegalBlockSizeException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, BadPaddingException {
-
+    SecretKey sk;
+    
+    public DES() throws NoSuchAlgorithmException{
         KeyGenerator kg = KeyGenerator.getInstance("DES");
         kg.init(new SecureRandom());
-        SecretKey sk = kg.generateKey();
+        this.sk = kg.generateKey();
+    }
+    
+    public byte[] cipherMsg(byte[] msgToCipher) throws IllegalBlockSizeException, InvalidKeyException, 
+            NoSuchAlgorithmException, NoSuchPaddingException, BadPaddingException {
 
-        Cipher desCipher;
+        Cipher cipher;
 
         // Create the cipher
-        desCipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
+        cipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
 
         // Initialize the cipher for encryption
-        desCipher.init(Cipher.ENCRYPT_MODE, sk);
+        cipher.init(Cipher.ENCRYPT_MODE, this.sk);
 
         // Encrypt the text
-        byte[] textEncrypted = desCipher.doFinal(msgToCipher);
+        byte[] textEncrypted = cipher.doFinal(msgToCipher);
 
         return textEncrypted;
     }
 
-    public static byte[] decipherMsg(byte[] msgToDecipher) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-
-        KeyGenerator kg = KeyGenerator.getInstance("DES");
-        kg.init(new SecureRandom());
-        SecretKey sk = kg.generateKey();
-
+    public  byte[] decipherMsg(byte[] msgToDecipher) throws NoSuchAlgorithmException, NoSuchPaddingException, 
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    
         Cipher desCipher;
 
         // Create the cipher
@@ -51,5 +53,26 @@ public class DES {
         byte[] textDecrypted = desCipher.doFinal(msgToDecipher);
         return textDecrypted;
     }
+    
+    public byte[] decipherMsgGivenSecretKey(byte[] msgToDecipher, byte[] secretKey) throws NoSuchAlgorithmException, 
+            NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
+        
+        //Converter byte[] -> SecretKey
+        SecretKey key = new SecretKeySpec(secretKey, "DES");
+        
+        Cipher desCipher;
 
+        // Create the cipher
+        desCipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
+
+        desCipher.init(Cipher.DECRYPT_MODE, key);
+
+        // Decrypt the text
+        byte[] textDecrypted = desCipher.doFinal(msgToDecipher);
+        return textDecrypted;
+    }
+
+    public SecretKey getKey() {
+        return this.sk;
+    }
 }

@@ -16,7 +16,8 @@ import javax.crypto.spec.DESedeKeySpec;
 public class DESede {
 
     public static byte[] encrypt(String password, byte[] salt, byte[] plaintext) throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidKeySpecException {
-        byte[] data = KeyDerivation.deriveKey(password, salt, 192);
+        int keyLen = 192;  //24 bytes * 8 bits = 192 (tamanho da chave-bits)
+        byte[] data = KeyDerivation.deriveKey(password, salt, keyLen);
         SecretKey desKey = SecretKeyFactory.getInstance("DESede").generateSecret(new DESedeKeySpec(data));
         Cipher cipher = Cipher.getInstance("DESede/ECB/PKCS5Padding");
         cipher.init(Cipher.ENCRYPT_MODE, desKey);
@@ -24,17 +25,18 @@ public class DESede {
     }
 
     public static byte[] decrypt(String password, byte[] salt, byte[] encryptedText) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
-        byte[] data = KeyDerivation.deriveKey(password, salt, 192);
+        int keyLen = 192;  //24 bytes * 8 bits = 192 (tamanho da chave-bits)
+        byte[] data = KeyDerivation.deriveKey(password, salt, keyLen);
         SecretKey desKey = SecretKeyFactory.getInstance("DESede").generateSecret(new DESedeKeySpec(data));
         Cipher cipher = Cipher.getInstance("DESede/ECB/PKCS5Padding");
         cipher.init(Cipher.DECRYPT_MODE, desKey);
         return cipher.doFinal(encryptedText);
     }
-    
+
     public static byte[] encryptSecureRandom(byte[] plaintext) throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidKeySpecException {
         byte[] bytesRandom = new byte[20];
         SecureRandom.getInstanceStrong().nextBytes(bytesRandom);
-        
+
         SecretKey desKey = SecretKeyFactory.getInstance("DES").generateSecret(new DESedeKeySpec(bytesRandom));
         Cipher cipher = Cipher.getInstance("DES");
         cipher.init(Cipher.ENCRYPT_MODE, desKey);
