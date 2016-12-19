@@ -19,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -115,19 +116,44 @@ public class SecureChat2 {
                         
                         byte[] chaveSimetricaCifrada = Base64.getDecoder().decode(jObject.get("chave").getAsString());
                         byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
-
-                        PrivateKey myPrivate = parDeChavesRSA.getPrivateKey();
-
-                        byte[] chaveSimetricaDecifrada = CipherAssimetricKeys.decipher(myPrivate, chaveSimetricaCifrada);
-
-                        byte[] msgDecifradaArray = des.decipherMsgGivenSecretKey(msgToDecipher, chaveSimetricaDecifrada);
-
-                        String msgDecifrada = new String(msgDecifradaArray);
-                        //String msgDecifrada = Base64.getEncoder().encodeToString(msgDecifradaArray);
-
-                        System.out.println(">> Mensagem: " + msgDecifrada);
-                        break;
                         
+                        
+                        out.println("{\"command\":\"list\",\"id\":\"" + remetente + "\"}");
+                        JsonReader jReader2 = new JsonReader(in);
+                        JsonElement jElement2 = new JsonParser().parse(jReader2);
+                        JsonObject jObject2 = jElement2.getAsJsonObject();
+
+                        JsonArray resultArray = jObject2.get("result").getAsJsonArray();
+                        JsonObject result = resultArray.get(0).getAsJsonObject();
+                        String chavePublicaRemetente = result.get("publicKeyRSA").getAsString(); //certo
+                        // -- Validacao da Assinatura
+                       
+                        byte[] assinaturaRemetente = Base64.getDecoder().decode(jObject.get("assinatura").getAsString()); //certo
+
+                        Signature sig = Signature.getInstance("SHA1WithRSA");
+                        sig.initVerify(ConvertKeys.StringToPublicKeyRSA(chavePublicaRemetente));
+                        sig.update(msgToDecipher);
+                        boolean signatureVerification = sig.verify(assinaturaRemetente);
+                        
+                        if (signatureVerification == true) {
+                            System.out.println("Assinatura valida!");
+                            //3) Decifra da chave
+                            PrivateKey myPrivate = parDeChavesRSA.getPrivateKey();
+
+                            byte[] chaveSimetricaDecifrada = CipherAssimetricKeys.decipher(myPrivate, chaveSimetricaCifrada);
+
+                            //4) Decifra da msg
+                            byte[] msgDecifradaArray = des.decipherMsgGivenSecretKey(msgToDecipher, chaveSimetricaDecifrada);
+
+                            String msgDecifrada = new String(msgDecifradaArray);
+                            //String msgDecifrada = Base64.getEncoder().encodeToString(msgDecifradaArray);
+
+                            System.out.println(">> Mensagem: " + msgDecifrada);
+                            break;
+                        } else {
+                            System.out.println("Assinatura invalida!");
+                        }
+
                     } else if (jObject.get("code").getAsString().equals("DiffieHellman")) {
                         break;
                     }
@@ -395,8 +421,15 @@ public class SecureChat2 {
 
         des = new DES();
         //1) Cifrar a mensagem com a chave simetrica
-        String msgCifrada = Base64.getEncoder().encodeToString(des.cipherMsg(msgToByteArray));
-
+        byte[] msgCifradaBytes = des.cipherMsg(msgToByteArray);
+        String msgCifradaString = Base64.getEncoder().encodeToString(des.cipherMsg(msgToByteArray));
+        
+        //2) Assinar
+        Signature sig = Signature.getInstance("SHA1WithRSA");
+        sig.initSign(parDeChavesRSA.getPrivateKey());
+        sig.update(msgCifradaBytes);
+        String assinatura = Base64.getEncoder().encodeToString(sig.sign());
+        
         out.println("{\"command\":\"list\",\"id\":\"" + dst + "\"}");
 
         JsonReader jReader = new JsonReader(in);
@@ -428,8 +461,9 @@ public class SecureChat2 {
 
         String s1 = "{\"command\":\"send\",\"dst\":\"" + nomeDestinatario 
                 + "\",\"remetente\":\"" + nomeCliente
-                + "\",\"msg\":\"" + msgCifrada
+                + "\",\"msg\":\"" + msgCifradaString
                 + "\",\"code\":\"" + code
+                + "\",\"assinatura\":\"" + assinatura
                 + "\",\"chave\":\"" + chaveSimetricaCifrada + "\"}";
 
         out.println(s1);
