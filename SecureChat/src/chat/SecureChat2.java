@@ -155,6 +155,33 @@ public class SecureChat2 {
                         }
 
                     } else if (jObject.get("code").getAsString().equals("DiffieHellman")) {
+                        //Buscar publicKey Destinatario
+                        out.println("{\"command\":\"list\",\"id\":\"" + remetente + "\"}");
+                        JsonReader jReader2 = new JsonReader(in);
+                        JsonElement jElement2 = new JsonParser().parse(jReader2);
+                        JsonObject jObject2 = jElement2.getAsJsonObject();
+
+                        JsonArray resultArray = jObject2.get("result").getAsJsonArray();
+                        JsonObject result = resultArray.get(0).getAsJsonObject();
+                        String chavePublicaRemetente = result.get("publicKeyDH").getAsString(); //certo
+
+                        //Criar KeyAgreement
+                        KeyAgreement ka;
+                        ka = KeyAgreement.getInstance("DiffieHellman");
+                        ka.init(parDeChavesDH.getPrivateKey());
+                        ka.doPhase(ConvertKeys.StringToPublicKeyDH(chavePublicaRemetente), true);
+
+                        byte[] secretKey = ka.generateSecret("DES").getEncoded();
+                        
+                        //Buscar Mensagem Cifrada
+                        byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
+                        
+                        //Decifrar Mensagem
+                        des = new DES();
+                        byte[] msgDecifradaArray = des.decipherMsgGivenSecretKey(msgToDecipher, secretKey);
+                        String msgDecifrada = new String (msgDecifradaArray);
+                        
+                        System.out.println("\n>> Mensagem: " + msgDecifrada);
                         break;
                     }
 
