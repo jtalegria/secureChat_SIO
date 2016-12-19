@@ -43,6 +43,7 @@ public class SecureChat2 {
     static KeyPairRSAGenerator parDeChavesRSA;
     static KeyPairDHGenerator parDeChavesDH;
     static DES des;
+    static String nomeCliente;
 
     public static void main(String[] args) throws IOException, InterruptedException, NoSuchAlgorithmException,
             NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, Exception {
@@ -74,11 +75,12 @@ public class SecureChat2 {
                     JsonReader jReader = new JsonReader(in);
                     JsonElement jElement = new JsonParser().parse(jReader);
                     JsonObject jObject = jElement.getAsJsonObject();
-
+                    String remetente = jObject.get("remetente").getAsString();
+                    
                     if (jObject.get("code").getAsString().equals("DESede")) {
                         //DECIFRAR DES
-
-                        System.out.println("\n>> Recebeu uma mensagem nova (Cifrada Simetricamente)!");
+                        
+                        System.out.println("\n>> Recebeu uma nova mensagem de " + remetente + " (Cifrada Simetricamente)!");
                         System.out.print("Password para ver mensagem: ");
 
                         sc.nextLine();
@@ -105,11 +107,12 @@ public class SecureChat2 {
                         }
 
                         break;
+                        
                     } else if (jObject.get("code").getAsString().equals("cifraHibrida")) {
                         // DECIFRAR A CIFRA HIBRIDA
                         des = new DES();
-                        System.out.println("\n>> Recebeu uma mensagem nova (Cifrada Hibrida)!");
-
+                        System.out.println("\n>> Recebeu uma nova mensagem de " + remetente + " (Cifrada Hibridamente)!");
+                        
                         byte[] chaveSimetricaCifrada = Base64.getDecoder().decode(jObject.get("chave").getAsString());
                         byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
 
@@ -124,6 +127,7 @@ public class SecureChat2 {
 
                         System.out.println(">> Mensagem: " + msgDecifrada);
                         break;
+                        
                     } else if (jObject.get("code").getAsString().equals("DiffieHellman")) {
                         break;
                     }
@@ -192,9 +196,12 @@ public class SecureChat2 {
             String publicKeyDH = Base64.getEncoder().encodeToString(publicKeyDHArray);
 
             System.out.print("Nome Cliente: ");
-            String cliente = scanner.nextLine();
-
-            String s1 = "{\"command\":\"register\",\"src\":\"" + cliente + "\",\"publicKeyRSA\":\"" + publicKeyRSA
+            nomeCliente = scanner.nextLine();
+            
+            
+            String s1 = "{\"command\":\"register\",\"src\":\"" + nomeCliente 
+                    + "\",\"remetente\":\"" + nomeCliente
+                    + "\",\"publicKeyRSA\":\"" + publicKeyRSA
                     + "\",\"publicKeyDH\":\"" + publicKeyDH + "\"}";
 
             out.println(s1);
@@ -204,7 +211,7 @@ public class SecureChat2 {
             JsonObject jObject = jElement.getAsJsonObject();
 
             if (jObject.get("error").getAsString().equals("ok")) {
-                System.out.println(">> O cliente " + cliente + " foi registado com sucesso.");
+                System.out.println(">> O cliente " + nomeCliente + " foi registado com sucesso.");
                 System.out.println("");
                 registerLimit++;
             } else {
@@ -355,6 +362,7 @@ public class SecureChat2 {
         String mac = Base64.getEncoder().encodeToString(HMACsignature.calculateRFC2104HMAC(toMAC, pwdChat));
 
         String outterMsg = "{\"command\":\"send\",\"dst\":\"" + dst
+                + "\",\"remetente\":\"" + nomeCliente
                 + "\",\"msg\":" + innerMsg
                 + ",\"code\":\"" + code
                 + "\",\"HMAC\":\"" + mac + "\"}";
@@ -418,7 +426,9 @@ public class SecureChat2 {
 
         String chaveSimetricaCifrada = Base64.getEncoder().encodeToString(CipherAssimetricKeys.cipher(publicKey, sk));
 
-        String s1 = "{\"command\":\"send\",\"dst\":\"" + nomeDestinatario + "\",\"msg\":\"" + msgCifrada
+        String s1 = "{\"command\":\"send\",\"dst\":\"" + nomeDestinatario 
+                + "\",\"remetente\":\"" + nomeCliente
+                + "\",\"msg\":\"" + msgCifrada
                 + "\",\"code\":\"" + code
                 + "\",\"chave\":\"" + chaveSimetricaCifrada + "\"}";
 
@@ -474,7 +484,9 @@ public class SecureChat2 {
 
         String msgCifrada = Base64.getEncoder().encodeToString(des.cipherMsgGivenSecretKey(msgToCipher, secretKey));
 
-        String s1 = "{\"command\":\"send\",\"dst\":\"" + dst + "\",\"msg\":\"" + msgCifrada
+        String s1 = "{\"command\":\"send\",\"dst\":\"" + dst 
+                + "\",\"remetente\":\"" + nomeCliente
+                + "\",\"msg\":\"" + msgCifrada
                 + "\",\"code\":\"" + code
                 + "\",\"chave\":\"" + secretKeyToSend + "\"}";
         
