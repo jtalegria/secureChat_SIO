@@ -32,21 +32,4 @@ public class KeyPairRSAGenerator {
     public PublicKey getPublicKey() {
         return this.publicKey;
     }
-    
-//    public static void generateKeys() {
-//        try {
-//            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-//            keyPairGenerator.initialize(4096);
-//            
-//            KeyPair keyPair = keyPairGenerator.genKeyPair();
-//            privateK = keyPair.getPrivate();
-//            publicK = keyPair.getPublic();
-//
-//        } catch (Exception e) {
-//            System.err.println(e + "@generateAndSaveRSAKeys");
-//        }
-//    }
-
- 
-    
 }

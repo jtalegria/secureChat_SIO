@@ -1,6 +1,7 @@
 package chat;
 
 
+import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -10,6 +11,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
+import javax.crypto.spec.DHPublicKeySpec;
 
 public class ConvertKeys {
 
@@ -33,7 +35,6 @@ public class ConvertKeys {
 //        byte[] bytes = chavePublicaString.getBytes();
 //        return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
 //    }
-    
     public static PublicKey StringToPublicKey(String key) {
         try {
             byte[] byteKey = Base64.getDecoder().decode(key);
@@ -47,17 +48,36 @@ public class ConvertKeys {
 
         return null;
     }
-    
+
     public static PublicKey StringToPublicKeyDH(String key) {
+        BigInteger g = new BigInteger(
+                "7961C6D7913FDF8A034593294FA52D6F8354E9EDFE3EDC8EF082D36662D69DFE8CA7DC7480121C98B9774DFF915FB710D79E1BCBA68C0D429CD6B9AD73C0EF20",
+                16);
+        BigInteger p = new BigInteger(
+                "00AC86AB9A1F921B251027BD10B93D0A8D9A260364974648E2543E8CD5C48DB4FFBEF0C3843465BA8DE20FFA36FFAF840B8CF26C9EB865BA184642A5F84606AEC5",
+                16);
         try {
             byte[] byteKey = Base64.getDecoder().decode(key);
-            X509EncodedKeySpec X509publicKey = new X509EncodedKeySpec(byteKey);
-            KeyFactory keyFact = KeyFactory.getInstance("DH");
-            return keyFact.generatePublic(X509publicKey);
+            DHPublicKeySpec dhspec = new DHPublicKeySpec(new BigInteger(byteKey), p, g);
+            KeyFactory keyFact = KeyFactory.getInstance("DiffieHellman");
+            return keyFact.generatePublic(dhspec);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
+        return null;
+    }
+    
+    public static PublicKey StringToPublicKeyDH2(String key){
+        try{
+            byte[] byteKey = Base64.getDecoder().decode(key);
+            KeyFactory keyFactory = KeyFactory.getInstance("DiffieHellman");
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(byteKey);
+            return keyFactory.generatePublic(keySpec); // THROWS EXCEPTION
+  
+        }catch(Exception e){
+            e.printStackTrace();
+        }
         return null;
     }
 
@@ -71,7 +91,7 @@ public class ConvertKeys {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
         return null;
     }
 
@@ -85,7 +105,6 @@ public class ConvertKeys {
 //        Arrays.fill(packed, (byte) 0);
 //        return key64;
 //    }
-
 //    public static String savePublicKey(PublicKey publ) throws GeneralSecurityException {
 //        KeyFactory fact = KeyFactory.getInstance("DSA");
 //        X509EncodedKeySpec spec = fact.getKeySpec(publ, X509EncodedKeySpec.class);
