@@ -1,6 +1,5 @@
 package chat;
 
-
 import java.security.Key;
 import java.security.KeyStore;
 import java.security.Principal;
@@ -102,6 +101,5 @@ public class CC {
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
       
         return cipher.doFinal(data);
-
     }
 }

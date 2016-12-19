@@ -1,6 +1,5 @@
 package chat;
 
-
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
@@ -16,5 +15,4 @@ public class KeyDerivation {
         SecretKey key = kf.generateSecret(specs);
         return key.getEncoded();
     }
-
 }

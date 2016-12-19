@@ -1,6 +1,5 @@
 package chat;
 
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -16,13 +15,11 @@ import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Scanner;
@@ -118,7 +115,7 @@ public class SecureChat2 {
 
                         PrivateKey myPrivate = parDeChavesRSA.getPrivateKey();
 
-                        byte[] chaveSimetricaDecifrada = CipherAssimetricKeys.decrypt(myPrivate, chaveSimetricaCifrada);
+                        byte[] chaveSimetricaDecifrada = CipherAssimetricKeys.decipher(myPrivate, chaveSimetricaCifrada);
 
                         byte[] msgDecifradaArray = des.decipherMsgGivenSecretKey(msgToDecipher, chaveSimetricaDecifrada);
 
@@ -416,10 +413,10 @@ public class SecureChat2 {
             //Cliente que se quer enviar a mensagem NAO existe
         }
 
-        PublicKey publicKey = ConvertKeys.StringToPublicKey(publicKeyDestinatarioString);
+        PublicKey publicKey = ConvertKeys.StringToPublicKeyRSA(publicKeyDestinatarioString);
         byte[] sk = des.getKey().getEncoded();
 
-        String chaveSimetricaCifrada = Base64.getEncoder().encodeToString(CipherAssimetricKeys.encrypt(publicKey, sk));
+        String chaveSimetricaCifrada = Base64.getEncoder().encodeToString(CipherAssimetricKeys.cipher(publicKey, sk));
 
         String s1 = "{\"command\":\"send\",\"dst\":\"" + nomeDestinatario + "\",\"msg\":\"" + msgCifrada
                 + "\",\"code\":\"" + code
@@ -465,7 +462,7 @@ public class SecureChat2 {
             sendDiffieHelman();
         }
 
-        PublicKey publicKeyDestinatarioDH = ConvertKeys.StringToPublicKeyDH2(publicKeyDestinatarioStringDH);
+        PublicKey publicKeyDestinatarioDH = ConvertKeys.StringToPublicKeyDH(publicKeyDestinatarioStringDH);
 
         KeyAgreement ka;
         ka = KeyAgreement.getInstance("DiffieHellman");
