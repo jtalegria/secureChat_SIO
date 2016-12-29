@@ -17,6 +17,7 @@ import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyStoreException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -24,13 +25,16 @@ import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyAgreement;
@@ -54,12 +58,17 @@ public class SecureChat2 {
     static KeyPairRSAGenerator parDeChavesRSA;
     static KeyPairDHGenerator parDeChavesDH;
     static PublicKey publicKeyCC;
+    static Certificate certificateCC;
     static DES des;
     static String nomeCliente;
     static String username = "Nao Definido";
+    //static String randomNumber = getSecureRandom();
+    static String randomNumber = getSecureRandom();
     static HashMap<String, String> usernameClientes = new HashMap<>();
-    static HashMap<String, SecretKey> clientKeysPublicKey = new HashMap<>();
+    //static HashMap<String, SecretKey> clientKeysPassword = new HashMap<>();
+    static HashMap<String, HashMap<byte[], String>> clientKeysPassword = new HashMap<>();
     static HashMap<String, SecretKey> clientKeysDH = new HashMap<>();
+    static HashMap<String, SecretKey> clientKeysPublicKey = new HashMap<>();
     static CC cc = new CC();
 
     public static void main(String[] args) throws IOException, InterruptedException, NoSuchAlgorithmException,
@@ -121,7 +130,7 @@ public class SecureChat2 {
                             byte[] msgToDecipher = Base64.getDecoder().decode(resultObject.get("msgBody").getAsString());
 
                             String msgDecifrada = new String(DESede.decrypt(pwd, saltArray, msgToDecipher));
-                            System.out.println(">> Mensagem: " + msgDecifrada);
+                            System.out.println(">> Verificacao valida! Mensagem: " + msgDecifrada);
                         } else {
                             System.out.println("MACs diferentes!");
                         }
@@ -141,15 +150,18 @@ public class SecureChat2 {
 
                         JsonArray resultArray = jObject2.get("result").getAsJsonArray();
                         JsonObject result = resultArray.get(0).getAsJsonObject();
-                        
+
                         String registoViaCC = result.get("registoViaCC").getAsString();
                         // -- Validacao da Assinatura
-                        
+
                         byte[] assinaturaRemetente = Base64.getDecoder().decode(jObject.get("assinatura").getAsString());
 
                         boolean signatureVerification;
                         if (registoViaCC.equals("true")) {
-                            String chavePublicaRemetente = result.get("publicKeyCC").getAsString();
+                            String certificadoString = result.get("certificadoCC").getAsString();
+                            Certificate certificado = cc.getCertificateGivenString(certificadoString);
+                            String chavePublicaRemetente = cc.getPublicKeyStringGivenCertificate(certificado);
+                            
                             Signature sig = Signature.getInstance("SHA1WithRSA");
                             sig.initVerify(ConvertKeys.StringToPublicKeyRSA(chavePublicaRemetente));
                             sig.update(msgToDecipher);
@@ -206,12 +218,16 @@ public class SecureChat2 {
 
                         JsonArray resultArray = jObject2.get("result").getAsJsonArray();
                         JsonObject result = resultArray.get(0).getAsJsonObject();
-                        
+
                         String registoViaCC = result.get("registoViaCC").getAsString();
 
                         boolean signatureVerification;
                         if (registoViaCC.equals("true")) {
-                            String chavePublicaRemetente = result.get("publicKeyCC").getAsString();
+                            String certificadoString = result.get("certificadoCC").getAsString();
+                            Certificate certificado = cc.getCertificateGivenString(certificadoString);
+                            String chavePublicaRemetente = cc.getPublicKeyStringGivenCertificate(certificado);
+                            
+                            
                             Signature sig = Signature.getInstance("SHA1WithRSA");
                             sig.initVerify(ConvertKeys.StringToPublicKeyRSA(chavePublicaRemetente));
                             sig.update(msgToDecipher);
@@ -229,8 +245,8 @@ public class SecureChat2 {
                             System.out.println("Assinatura valida! Mensagem proveniente de " + remetente);
                             byte[] msgDecifrada = des.decipherMsgGivenByteArraySecretKey(msgToDecipher, clientKeysPublicKey.get(remetente).getEncoded());
                             System.out.println(">> Mensagem: " + new String(msgDecifrada));
-                            
-                            if(new String(msgDecifrada).equals("ENCERRAR")){
+
+                            if (new String(msgDecifrada).equals("ENCERRAR")) {
                                 clientKeysPublicKey.remove(remetente);
                                 System.out.println("Acordo de chaves terminado!");
                             }
@@ -270,7 +286,6 @@ public class SecureChat2 {
                         } else {
                             System.out.println("Acordo de Chaves Distinto!");
                         }
-
                         break;
                     } else if (jObject.get("code").getAsString().equals("envioMsgDH")) {
                         des = new DES();
@@ -295,13 +310,92 @@ public class SecureChat2 {
                             System.out.println("Assinatura valida! Mensagem proveniente de " + remetente);
                             byte[] msgDecifrada = des.decipherMsgGivenByteArraySecretKey(msgToDecipher, clientKeysDH.get(remetente).getEncoded());
                             System.out.println(">> Mensagem: " + new String(msgDecifrada));
-                            if(new String(msgDecifrada).equals("ENCERRAR")){
+                            if (new String(msgDecifrada).equals("ENCERRAR")) {
                                 clientKeysDH.remove(remetente);
                                 System.out.println("Acordo de chaves terminado!");
                             }
                         } else {
                             System.out.println("Assinatura invalida!");
                         }
+                        break;
+                    } else if (jObject.get("code").getAsString().equals("acordoChavesPassword")) {
+                        System.out.println("\n>> Definir acordo de chaves com " + remetente);
+                        System.out.print("Password: ");
+
+                        sc.nextLine();
+                        String pwd = sc.nextLine();
+
+                        String digestReceived = jObject.get("chaveSessao").getAsString();
+
+                        out.println("{\"command\":\"list\",\"id\":\"" + remetente + "\"}");
+                        JsonReader jReader2 = new JsonReader(in);
+                        JsonElement jElement2 = new JsonParser().parse(jReader2);
+                        JsonObject jObject2 = jElement2.getAsJsonObject();
+
+                        JsonArray resultArray = jObject2.get("result").getAsJsonArray();
+                        JsonObject result = resultArray.get(0).getAsJsonObject();
+                        String randomNumberRecebido = result.get("randomNumber").getAsString();
+
+                        String toDigestString = pwd.concat(randomNumberRecebido).concat(randomNumber);
+
+                        byte[] toDigestArray = toDigestString.getBytes();
+
+                        MessageDigest sha = MessageDigest.getInstance("MD5");
+                        byte[] digest = sha.digest(toDigestArray);
+                        digest = Arrays.copyOf(digest, 8);
+
+                        String digestNew = Base64.getEncoder().encodeToString(digest);
+
+                        if (digestReceived.equals(digestNew)) {
+                            if (!clientKeysPassword.containsKey(remetente)) {
+                                HashMap<byte[], String> tmp = new HashMap<>();
+                                tmp.put(digest, pwd);
+                                clientKeysPassword.put(remetente, tmp);
+                                System.out.println("Chave de Sessao estabelecida com " + remetente);
+                            } else {
+                                System.out.println("Chaves de Sessao nao definidas");
+                            }
+                        } else {
+                            System.out.println("Acordo de Chaves Distinto!");
+                        }
+                        break;
+                    } else if (jObject.get("code").getAsString().equals("envioMsgPassword")) {
+                        des = new DES();
+                        String msgToDecipherString = jObject.get("msg").getAsString();
+                        byte[] msgToDecipherArray = Base64.getDecoder().decode(jObject.get("msg").getAsString());
+
+                        out.println("{\"command\":\"list\",\"id\":\"" + remetente + "\"}");
+                        JsonReader jReader2 = new JsonReader(in);
+                        JsonElement jElement2 = new JsonParser().parse(jReader2);
+                        JsonObject jObject2 = jElement2.getAsJsonObject();
+
+                        JsonArray resultArray = jObject2.get("result").getAsJsonArray();
+                        JsonObject result = resultArray.get(0).getAsJsonObject();
+
+                        HashMap<byte[], String> tmp = clientKeysPassword.get(remetente);
+                        byte[] digest = null;
+                        String pwd = null;
+
+                        for (Map.Entry<byte[], String> entry : tmp.entrySet()) {
+                            digest = entry.getKey();
+                            pwd = entry.getValue();
+                        }
+
+                        String receivedMac = jObject.get("HMAC").getAsString();
+                        String newMAC = Base64.getEncoder().encodeToString(HMACsignature.calculateRFC2104HMAC(msgToDecipherString, pwd));
+
+                        if (receivedMac.equals(newMAC)) {
+                            System.out.println("Verificacao valida! Mensagem proveniente de " + remetente);
+                            byte[] msgDecifrada = des.decipherMsgGivenByteArraySecretKey(msgToDecipherArray, digest);
+                            System.out.println(">> Mensagem: " + new String(msgDecifrada));
+                            if (new String(msgDecifrada).equals("ENCERRAR")) {
+                                clientKeysDH.remove(remetente);
+                                System.out.println("Acordo de chaves terminado!");
+                            }
+                        } else {
+                            System.out.println("Assinatura invalida!");
+                        }
+                        break;
                     }
                 }
                 Thread.currentThread().sleep(200); // 100 milis
@@ -364,10 +458,13 @@ public class SecureChat2 {
                     parDeChavesRSA.createKeys();
                     byte[] publicKeyRSAArray = parDeChavesRSA.getPublicKey().getEncoded();
                     String publicKeyRSA = Base64.getEncoder().encodeToString(publicKeyRSAArray);
-                    
-                    publicKeyCC = cc.getPublicKey();
-                    byte[] publicKeyCCArray = publicKeyCC.getEncoded();
-                    String publicKeyCCString = Base64.getEncoder().encodeToString(publicKeyCCArray);
+
+                    //publicKeyCC = cc.getPublicKey();
+                    certificateCC = cc.getCertificate();
+                    byte[] certificateCCArray = certificateCC.getEncoded();
+                    String certificateCCString = Base64.getEncoder().encodeToString(certificateCCArray);
+                    //byte[] publicKeyCCArray = publicKeyCC.getEncoded();
+                    //String publicKeyCCString = Base64.getEncoder().encodeToString(publicKeyCCArray);
 
                     //KeyPairGerador parDeChaves DH
                     parDeChavesDH = new KeyPairDHGenerator(1024);
@@ -393,8 +490,9 @@ public class SecureChat2 {
                             + "\",\"remetente\":\"" + nomeCliente
                             + "\",\"remetenteUsername\":\"" + username
                             + "\",\"registoViaCC\":\"" + "true"
+                            + "\",\"randomNumber\":\"" + randomNumber
                             + "\",\"publicKeyRSA\":\"" + publicKeyRSA
-                            + "\",\"publicKeyCC\":\"" + publicKeyCCString
+                            + "\",\"certificadoCC\":\"" + certificateCCString
                             + "\",\"publicKeyDH\":\"" + publicKeyDH + "\"}";
 
                     out.println(s1);
@@ -408,9 +506,8 @@ public class SecureChat2 {
                             System.out.println(">> O cliente " + nomeCliente + " foi registado com sucesso.");
                             System.out.println("");
                             limitDelimiter++;
-                        }
-                        else{
-                            System.out.println(">> O cliente " + nomeCliente + " (" +username+ ")" + " foi registado com sucesso.");
+                        } else {
+                            System.out.println(">> O cliente " + nomeCliente + " (" + username + ")" + " foi registado com sucesso.");
                             System.out.println("");
                             limitDelimiter++;
                         }
@@ -418,8 +515,7 @@ public class SecureChat2 {
                         System.out.println(">> Cliente já registado. Considere outro nome.");
                         System.out.println("");
                     }
-                }
-                else{
+                } else {
                     System.out.println("Função registar apenas disponivel 1 vez");
                 }
                 break;
@@ -436,7 +532,7 @@ public class SecureChat2 {
                     parDeChavesDH.createKeys();
                     byte[] publicKeyDHArray = parDeChavesDH.getPublicKey().getEncoded();
                     String publicKeyDH = Base64.getEncoder().encodeToString(publicKeyDHArray);
-                    
+
                     System.out.print("Nome Cliente: ");
                     String nome = scanner.nextLine();
                     nomeCliente = nome;
@@ -444,6 +540,7 @@ public class SecureChat2 {
                     String s1 = "{\"command\":\"register\",\"src\":\"" + nomeCliente
                             + "\",\"remetente\":\"" + nomeCliente
                             + "\",\"registoViaCC\":\"" + "false"
+                            + "\",\"randomNumber\":\"" + randomNumber
                             + "\",\"publicKeyRSA\":\"" + publicKeyRSA
                             + "\",\"publicKeyDH\":\"" + publicKeyDH + "\"}";
 
@@ -493,7 +590,7 @@ public class SecureChat2 {
                 sendHybridCipher();
                 break;
             case 4:
-                //TO-DO
+                sessionKeyPassword();
                 break;
             case 5:
                 sessionKeyDiffieHelman();
@@ -643,8 +740,129 @@ public class SecureChat2 {
         sendedMsg();
     }
 
+    public static void sessionKeyPassword() throws NoSuchAlgorithmException, SignatureException,
+            InvalidKeyException, IOException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
+        Scanner scanner = new Scanner(System.in);
+        String randomNumberDestinatario = "";
+        String code = "";
+
+        System.out.print("Destinatario: ");
+        String dst = scanner.nextLine();
+
+        out.println("{\"command\":\"list\",\"id\":\"" + dst + "\"}");
+        JsonReader jReader = new JsonReader(in);
+        JsonElement jElement = new JsonParser().parse(jReader);
+        JsonObject jObject = jElement.getAsJsonObject();
+
+        if (jObject.get("error").getAsString().equals("ok")) {
+            JsonArray resultArray = jObject.get("result").getAsJsonArray();
+            JsonObject result = resultArray.get(0).getAsJsonObject();
+            randomNumberDestinatario = result.get("randomNumber").getAsString();
+        } else {
+            System.out.println("Cliente não existe.");
+            sessionKeyPassword();
+        }
+
+        System.out.println(">> 1 - Acordar chave de sessão");
+        System.out.println(">> 2 - Enviar mensagens");
+        System.out.print(">> Opcao: ");
+        int op = scanner.nextInt();
+        switch (op) {
+            case 1:
+                code = "acordoChavesPassword";
+                if (limitDelimiter != 1 && !(clientKeysPassword.containsKey(dst))) {
+                    System.out.print("Password: ");
+                    scanner.nextLine();
+                    String pwdChat = scanner.nextLine();
+
+                    String toDigestString = pwdChat.concat(randomNumber).concat(randomNumberDestinatario);
+                    byte[] toDigestArray = toDigestString.getBytes();
+
+                    //MessageDigest md = MessageDigest.getInstance("MD5");
+                    //md.update(toDigestArray);
+                    MessageDigest sha = MessageDigest.getInstance("MD5");
+                    byte[] key = sha.digest(toDigestArray);
+                    key = Arrays.copyOf(key, 8);
+
+                    //byte[] digest = md.digest();
+                    String digestString = Base64.getEncoder().encodeToString(key);
+
+                    String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
+                            + "\",\"remetente\":\"" + nomeCliente
+                            + "\",\"code\":\"" + code
+                            + "\",\"chaveSessao\":\"" + digestString + "\"}";
+
+                    out.println(s1);
+                    sendedKey();
+
+                    HashMap<byte[], String> tmp = new HashMap<>();
+                    tmp.put(key, pwdChat);
+                    //HashMap
+                    if (!clientKeysPassword.containsKey(dst)) {
+                        clientKeysPassword.put(dst, tmp);
+                    }
+                    limitDelimiter++;
+                } else {
+                    System.out.println("Chaves de sessão ja estabelecidas");
+                    sessionKeyPassword();
+                }
+                break;
+            case 2:
+                code = "envioMsgPassword";
+                if (clientKeysPassword.containsKey(dst)) {
+                    System.out.print("Mensagem: ");
+                    scanner.nextLine();
+                    String msg = scanner.nextLine();
+                    byte[] msgToByteArray = msg.getBytes();
+
+                    //1) Cifrar a mensagem com a chave simetrica
+                    des = new DES();
+
+                    HashMap<byte[], String> tmp = clientKeysPassword.get(dst);
+                    byte[] digest = null;
+                    String pwdChat = null;
+
+                    for (Map.Entry<byte[], String> entry : tmp.entrySet()) {
+                        digest = entry.getKey();
+                        pwdChat = entry.getValue();
+                    }
+
+                    byte[] msgCifradaBytes = des.cipherMsgGivenByteArraySecretKey(msgToByteArray, digest);
+                    String msgCifradaString = Base64.getEncoder().encodeToString(msgCifradaBytes);
+
+                    //2) Assinar
+                    String msgMAC = Base64.getEncoder().encodeToString(HMACsignature.calculateRFC2104HMAC(msgCifradaString, pwdChat));
+
+                    if (msg.equals("ENCERRAR")) {
+                        String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
+                                + "\",\"remetente\":\"" + nomeCliente
+                                + "\",\"msg\":\"" + msgCifradaString
+                                + "\",\"code\":\"" + code
+                                + "\",\"HMAC\":\"" + msgMAC + "\"}";
+                        out.println(s1);
+                        sendedMsg();
+                        clientKeysPassword.remove(dst);
+                        System.out.println("Acordo de chaves terminado!");
+                    } else {
+                        String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
+                                + "\",\"remetente\":\"" + nomeCliente
+                                + "\",\"msg\":\"" + msgCifradaString
+                                + "\",\"code\":\"" + code
+                                + "\",\"HMAC\":\"" + msgMAC + "\"}";
+                        out.println(s1);
+                        sendedMsg();
+                    }
+
+                } else {
+                    System.out.println("Chave de sessao nao definida para o utilizador pretendido");
+                    sessionKeyPassword();
+                }
+                break;
+        }
+    }
+
     public static void sessionKeyDiffieHelman() throws NoSuchAlgorithmException, NoSuchPaddingException,
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException, SignatureException, 
+            InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException, SignatureException,
             KeyStoreException, CertificateException, UnrecoverableKeyException {
         Scanner scanner = new Scanner(System.in);
         String publicKeyDstStringDH = "";
@@ -739,7 +957,7 @@ public class SecureChat2 {
                         out.println(s1);
                         sendedMsg();
                     }
-                    
+
                 } else {
                     System.out.println("Chave de sessao nao definida para o utilizador pretendido");
                     sessionKeyDiffieHelman();
@@ -831,7 +1049,7 @@ public class SecureChat2 {
                     } else {
                         assinatura = cc.signMsg(msgCifradaBytes);
                     }
-                    
+
                     if (msg.equals("ENCERRAR")) {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
@@ -859,32 +1077,7 @@ public class SecureChat2 {
         }
     }
 
-    public static void printClients() throws IOException {
-        out.print("{\"command\":\"list\"}");
-        ArrayList<String> tmpList = new ArrayList<String>();
-
-        String serverMessage = in.readLine();
-
-        if (serverMessage.equals("{\"error\":\"ok\",\"result\":[]}")) {
-            System.out.println(">> Sem clientes registados");
-        }
-
-        String[] toParse = serverMessage.split(",");
-
-        ArrayList<String> clientsList = new ArrayList<String>();
-        clientsList = parseClients(toParse);
-
-        System.out.println("Lista de clientes:");
-
-        for (int i = 0; i < clientsList.size(); i++) {
-            System.out.println(clientsList.get(i) + " - " + clientsList.get(i + 1));
-            i++;
-        }
-
-        //System.out.println(clientsList);
-    }
-
-    public static void printSelections() throws IOException {
+    public static void printSelections() throws IOException, CertificateException {
         int escolha;
         System.out.println("[1] Listar todos os clientes");
         System.out.println("[2] Listar um cliente especifico");
@@ -906,7 +1099,7 @@ public class SecureChat2 {
         }
     }
 
-    public static void printAllClients() throws IOException {
+    public static void printAllClients() throws IOException, CertificateException {
         out.print("{\"command\":\"list\"}");
 
         JsonReader jReader = new JsonReader(in);
@@ -924,7 +1117,7 @@ public class SecureChat2 {
                     String nomeDestinatario = result2.get("src").getAsString();
                     String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                     String publicKeyDH = result2.get("publicKeyDH").getAsString();
-                    
+
                     System.out.println(">> " + nomeDestinatario + ": online");
                     System.out.println("Chave Publica RSA: " + publicKeyRSA);
                     System.out.println("Chave Publica DH: " + publicKeyDH);
@@ -933,7 +1126,10 @@ public class SecureChat2 {
                     String nomeDestinatario = result2.get("src").getAsString();
                     String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                     String publicKeyDH = result2.get("publicKeyDH").getAsString();
-                    String publicKeyCC = result2.get("publicKeyCC").getAsString();
+
+                    String certificadoString = result2.get("certificadoCC").getAsString();
+                    Certificate certificado = cc.getCertificateGivenString(certificadoString);
+                    String publicKeyCC = cc.getPublicKeyStringGivenCertificate(certificado);
 
                     System.out.println(">> " + nomeDestinatario + ": online");
                     System.out.println("Chave Publica RSA: " + publicKeyRSA);
@@ -948,14 +1144,14 @@ public class SecureChat2 {
         }
     }
 
-    public static void printOneClient() throws IOException {
+    public static void printOneClient() throws IOException, CertificateException {
         Scanner scanner = new Scanner(System.in);
         System.out.print("   >> Nome: ");
         String cliente = scanner.nextLine();
 
         String nomeAProcurar = cliente;
         for (Map.Entry<String, String> entry : usernameClientes.entrySet()) {
-            if(cliente.equals(entry.getValue())){
+            if (cliente.equals(entry.getValue())) {
                 nomeAProcurar = entry.getKey();
             }
         }
@@ -981,7 +1177,10 @@ public class SecureChat2 {
                 String nomeDestinatario = result2.get("src").getAsString();
                 String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                 String publicKeyDH = result2.get("publicKeyDH").getAsString();
-                String publicKeyCC = result2.get("publicKeyCC").getAsString();
+
+                String certificadoString = result2.get("certificadoCC").getAsString();
+                Certificate certificado = cc.getCertificateGivenString(certificadoString);
+                String publicKeyCC = cc.getPublicKeyStringGivenCertificate(certificado);
 
                 System.out.println(">> " + nomeDestinatario + ": online");
                 System.out.println("Chave Publica RSA: " + publicKeyRSA);
@@ -994,44 +1193,18 @@ public class SecureChat2 {
         }
     }
 
-    public static ArrayList parseClients(String[] toParse) {
-        ArrayList<String> tmpList = new ArrayList<String>();
-        ArrayList<String> clientsList = new ArrayList<String>();
-        ArrayList<String> clientsListInverted = new ArrayList<String>();
-
-        for (int i = 1; i < toParse.length; i++) {
-            if (toParse[i].startsWith("\"result\"")) {
-                tmpList.add(toParse[i].substring(17));
-            }
-
-            if (toParse[i].startsWith("{\"src\"")) {
-                tmpList.add(toParse[i].substring(7));
-            }
-
-            if (toParse[i].startsWith("\"id\"")) {
-                tmpList.add(toParse[i].substring(5));
-            }
-        }
-
-        for (int i = 0; i < tmpList.size(); i++) {
-            String[] array = tmpList.get(i).split("\"");
-            clientsList.add(array[1]);
-        }
-
-        for (int i = 0; i < clientsList.size(); i++) {
-            clientsListInverted.add(clientsList.get(i + 1));
-            clientsListInverted.add(clientsList.get(i));
-            i++;
-        }
-
-        return clientsListInverted;
-    }
-
     public static String getSalt() throws Exception {
         SecureRandom sr = SecureRandom.getInstance("SHA1PRNG");
         byte[] salt = new byte[20];
         sr.nextBytes(salt);
         return new String(salt);
+    }
+
+    public static String getSecureRandom() {
+        SecureRandom ranGen = new SecureRandom();
+        byte[] desKey = new byte[16];
+        ranGen.nextBytes(desKey);
+        return Base64.getEncoder().encodeToString(desKey);
     }
 
     public static void sendedMsg() throws IOException {

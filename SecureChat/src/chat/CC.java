@@ -1,7 +1,9 @@
 package chat;
 
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -16,11 +18,12 @@ import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 
 public class CC {
-    public PublicKey getPublicKey() throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException{
+    public Certificate getCertificate() throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException{
         Provider[] provs = Security.getProviders();
         Provider cc = null;
 
@@ -36,9 +39,9 @@ public class CC {
         ks.load(null, null);
 
         String assinaturaCertLabel = "CITIZEN SIGNATURE CERTIFICATE";
-        Certificate cert = ks.getCertificate(assinaturaCertLabel);
+        Certificate certificate = ks.getCertificate(assinaturaCertLabel);
         
-        return cert.getPublicKey();
+        return certificate;
     }
     
     public String signMsg (byte[] msg) throws KeyStoreException, CertificateException,
@@ -103,5 +106,35 @@ public class CC {
             name = splited[0].split("=")[1];
         }
         return name;
+    }
+    
+    public String getPublicKeyStringGivenCertificate(Certificate certificate){
+        PublicKey pKey = certificate.getPublicKey();
+        byte[] pKeyArray = pKey.getEncoded();
+        String pKeyString = Base64.getEncoder().encodeToString(pKeyArray);
+        
+        return pKeyString;
+    }
+    
+//    public Certificate getCertificateGivenString(String certificateString) throws CertificateException {
+//        byte[] certificateArray = certificateString.getBytes();
+//        
+//        Certificate certificate = CertificateFactory
+//                .getInstance("X509")
+//                .generateCertificate(
+//                        new ByteArrayInputStream(certificateArray)
+//                );
+//        
+//        return certificate;
+//    }
+    
+        public Certificate getCertificateGivenString(String certificateString) throws CertificateException {
+        byte[] certificateArray = Base64.getDecoder().decode(certificateString);
+        
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        InputStream in = new ByteArrayInputStream(certificateArray);
+        X509Certificate certificate = (X509Certificate)certFactory.generateCertificate(in);
+        
+        return certificate;
     }
 }
