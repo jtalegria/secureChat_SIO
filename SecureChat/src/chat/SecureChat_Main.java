@@ -33,8 +33,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyAgreement;
@@ -43,7 +41,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-public class SecureChat2 {
+public class SecureChat_Main {
 
     // Classe cliente
     static Scanner sc = new Scanner(System.in);
@@ -62,10 +60,8 @@ public class SecureChat2 {
     static DES des;
     static String nomeCliente;
     static String username = "Nao Definido";
-    //static String randomNumber = getSecureRandom();
     static String randomNumber = getSecureRandom();
     static HashMap<String, String> usernameClientes = new HashMap<>();
-    //static HashMap<String, SecretKey> clientKeysPassword = new HashMap<>();
     static HashMap<String, HashMap<byte[], String>> clientKeysPassword = new HashMap<>();
     static HashMap<String, SecretKey> clientKeysDH = new HashMap<>();
     static HashMap<String, SecretKey> clientKeysPublicKey = new HashMap<>();
@@ -93,20 +89,16 @@ public class SecureChat2 {
                 }
 
                 if (inStream.available() != 0) {
-                    //l = inStream.read(buffer, 0, buffer.length);
-                    //System.out.write(buffer, 0, l);
-                    //System.out.print("\n");
-
                     JsonReader jReader = new JsonReader(in);
                     JsonElement jElement = new JsonParser().parse(jReader);
                     JsonObject jObject = jElement.getAsJsonObject();
                     String remetente = jObject.get("remetente").getAsString();
 
-                    if (jObject.get("code").getAsString().equals("all")) {
+                    if (jObject.get("ID").getAsString().equals("all")) {
                         System.out.println("\n>> Recebeu uma nova mensagem de " + remetente + " (Enviada para todos os Utilizadores)!");
                         System.out.println(">> Mensagem : " + jObject.get("msg").getAsString());
                         break;
-                    } else if (jObject.get("code").getAsString().equals("DESede")) {
+                    } else if (jObject.get("ID").getAsString().equals("DESede")) {
                         //DECIFRAR DES
 
                         System.out.println("\n>> Recebeu uma nova mensagem de " + remetente + " (Cifrada Simetricamente)!");
@@ -135,7 +127,7 @@ public class SecureChat2 {
                             System.out.println("MACs diferentes!");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("cifraHibrida")) {
+                    } else if (jObject.get("ID").getAsString().equals("cifraHibrida")) {
                         // DECIFRAR A CIFRA HIBRIDA
                         des = new DES();
                         System.out.println("\n>> Recebeu uma nova mensagem de " + remetente + " (Cifrada Hibridamente)!");
@@ -185,15 +177,14 @@ public class SecureChat2 {
                             byte[] msgDecifradaArray = des.decipherMsgGivenByteArraySecretKey(msgToDecipher, chaveSimetricaDecifrada);
 
                             String msgDecifrada = new String(msgDecifradaArray);
-                            //String msgDecifrada = Base64.getEncoder().encodeToString(msgDecifradaArray);
-
+                            
                             System.out.println(">> Mensagem: " + msgDecifrada);
                             break;
                         } else {
                             System.out.println("Assinatura invalida!");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("acordoChavesPublicKey")) {
+                    } else if (jObject.get("ID").getAsString().equals("acordoChavesPublicKey")) {
                         byte[] secretKeyCifrada = Base64.getDecoder().decode(jObject.get("chaveSessao").getAsString());
                         byte[] secretKeyDecifrada = CipherAssimetricKeys.decipher(parDeChavesRSA.getPrivateKey(), secretKeyCifrada);
 
@@ -206,7 +197,7 @@ public class SecureChat2 {
                             System.out.println("Chaves de Sessao nao definidas");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("envioMsgPublicKey")) {
+                    } else if (jObject.get("ID").getAsString().equals("envioMsgPublicKey")) {
                         des = new DES();
                         byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
                         byte[] assinaturaRemetente = Base64.getDecoder().decode(jObject.get("assinatura").getAsString());
@@ -254,7 +245,7 @@ public class SecureChat2 {
                             System.out.println("Assinatura invalida!");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("acordoChavesDH")) {
+                    } else if (jObject.get("ID").getAsString().equals("acordoChavesDH")) {
                         byte[] secretKeyCifrada = Base64.getDecoder().decode(jObject.get("chaveSessao").getAsString());
                         byte[] secretKeyDecifrada = CipherAssimetricKeys.decipher(parDeChavesDH.getPrivateKey(), secretKeyCifrada);
 
@@ -287,7 +278,7 @@ public class SecureChat2 {
                             System.out.println("Acordo de Chaves Distinto!");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("envioMsgDH")) {
+                    } else if (jObject.get("ID").getAsString().equals("envioMsgDH")) {
                         des = new DES();
                         byte[] msgToDecipher = Base64.getDecoder().decode(jObject.get("msg").getAsString());
                         byte[] assinaturaRemetente = Base64.getDecoder().decode(jObject.get("assinatura").getAsString());
@@ -318,7 +309,7 @@ public class SecureChat2 {
                             System.out.println("Assinatura invalida!");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("acordoChavesPassword")) {
+                    } else if (jObject.get("ID").getAsString().equals("acordoChavesPassword")) {
                         System.out.println("\n>> Definir acordo de chaves com " + remetente);
                         System.out.print("Password: ");
 
@@ -359,7 +350,7 @@ public class SecureChat2 {
                             System.out.println("Acordo de Chaves Distinto!");
                         }
                         break;
-                    } else if (jObject.get("code").getAsString().equals("envioMsgPassword")) {
+                    } else if (jObject.get("ID").getAsString().equals("envioMsgPassword")) {
                         des = new DES();
                         String msgToDecipherString = jObject.get("msg").getAsString();
                         byte[] msgToDecipherArray = Base64.getDecoder().decode(jObject.get("msg").getAsString());
@@ -663,7 +654,7 @@ public class SecureChat2 {
             String outterMsg = "{\"command\":\"send\",\"dst\":\"" + dst
                     + "\",\"remetente\":\"" + nomeCliente
                     + "\",\"msg\":" + innerMsg
-                    + ",\"code\":\"" + code
+                    + ",\"ID\":\"" + code
                     + "\",\"HMAC\":\"" + innerMsgMAC + "\"}";
 
             out.println(outterMsg);
@@ -731,7 +722,7 @@ public class SecureChat2 {
         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                 + "\",\"remetente\":\"" + nomeCliente
                 + "\",\"msg\":\"" + msgCifradaString
-                + "\",\"code\":\"" + code
+                + "\",\"ID\":\"" + code
                 + "\",\"assinatura\":\"" + assinatura
                 + "\",\"chave\":\"" + chaveSimetricaCifrada + "\"}";
 
@@ -780,23 +771,23 @@ public class SecureChat2 {
 
                     //MessageDigest md = MessageDigest.getInstance("MD5");
                     //md.update(toDigestArray);
-                    MessageDigest sha = MessageDigest.getInstance("MD5");
-                    byte[] key = sha.digest(toDigestArray);
-                    key = Arrays.copyOf(key, 8);
+                    MessageDigest md5 = MessageDigest.getInstance("MD5");
+                    byte[] digest = md5.digest(toDigestArray);
+                    digest = Arrays.copyOf(digest, 8);
 
                     //byte[] digest = md.digest();
-                    String digestString = Base64.getEncoder().encodeToString(key);
+                    String digestString = Base64.getEncoder().encodeToString(digest);
 
                     String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                             + "\",\"remetente\":\"" + nomeCliente
-                            + "\",\"code\":\"" + code
+                            + "\",\"ID\":\"" + code
                             + "\",\"chaveSessao\":\"" + digestString + "\"}";
 
                     out.println(s1);
                     sendedKey();
 
                     HashMap<byte[], String> tmp = new HashMap<>();
-                    tmp.put(key, pwdChat);
+                    tmp.put(digest, pwdChat);
                     //HashMap
                     if (!clientKeysPassword.containsKey(dst)) {
                         clientKeysPassword.put(dst, tmp);
@@ -830,14 +821,14 @@ public class SecureChat2 {
                     byte[] msgCifradaBytes = des.cipherMsgGivenByteArraySecretKey(msgToByteArray, digest);
                     String msgCifradaString = Base64.getEncoder().encodeToString(msgCifradaBytes);
 
-                    //2) Assinar
+                    //2) Autenticar a msg
                     String msgMAC = Base64.getEncoder().encodeToString(HMACsignature.calculateRFC2104HMAC(msgCifradaString, pwdChat));
 
                     if (msg.equals("ENCERRAR")) {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
                                 + "\",\"msg\":\"" + msgCifradaString
-                                + "\",\"code\":\"" + code
+                                + "\",\"ID\":\"" + code
                                 + "\",\"HMAC\":\"" + msgMAC + "\"}";
                         out.println(s1);
                         sendedMsg();
@@ -847,7 +838,7 @@ public class SecureChat2 {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
                                 + "\",\"msg\":\"" + msgCifradaString
-                                + "\",\"code\":\"" + code
+                                + "\",\"ID\":\"" + code
                                 + "\",\"HMAC\":\"" + msgMAC + "\"}";
                         out.println(s1);
                         sendedMsg();
@@ -903,7 +894,7 @@ public class SecureChat2 {
 
                     String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                             + "\",\"remetente\":\"" + nomeCliente
-                            + "\",\"code\":\"" + code
+                            + "\",\"ID\":\"" + code
                             + "\",\"chaveSessao\":\"" + secretKey + "\"}";
 
                     out.println(s1);
@@ -942,7 +933,7 @@ public class SecureChat2 {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
                                 + "\",\"msg\":\"" + msgCifradaString
-                                + "\",\"code\":\"" + code
+                                + "\",\"ID\":\"" + code
                                 + "\",\"assinatura\":\"" + assinatura + "\"}";
                         out.println(s1);
                         sendedMsg();
@@ -952,7 +943,7 @@ public class SecureChat2 {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
                                 + "\",\"msg\":\"" + msgCifradaString
-                                + "\",\"code\":\"" + code
+                                + "\",\"ID\":\"" + code
                                 + "\",\"assinatura\":\"" + assinatura + "\"}";
                         out.println(s1);
                         sendedMsg();
@@ -1010,7 +1001,7 @@ public class SecureChat2 {
 
                     String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                             + "\",\"remetente\":\"" + nomeCliente
-                            + "\",\"code\":\"" + code
+                            + "\",\"ID\":\"" + code
                             + "\",\"chaveSessao\":\"" + secretKeyToSend + "\"}";
 
                     out.println(s1);
@@ -1054,7 +1045,7 @@ public class SecureChat2 {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
                                 + "\",\"msg\":\"" + msgCifradaString
-                                + "\",\"code\":\"" + code
+                                + "\",\"ID\":\"" + code
                                 + "\",\"assinatura\":\"" + assinatura + "\"}";
                         out.println(s1);
                         sendedMsg();
@@ -1064,7 +1055,7 @@ public class SecureChat2 {
                         String s1 = "{\"command\":\"send\",\"dst\":\"" + dst
                                 + "\",\"remetente\":\"" + nomeCliente
                                 + "\",\"msg\":\"" + msgCifradaString
-                                + "\",\"code\":\"" + code
+                                + "\",\"ID\":\"" + code
                                 + "\",\"assinatura\":\"" + assinatura + "\"}";
                         out.println(s1);
                         sendedMsg();
@@ -1117,15 +1108,18 @@ public class SecureChat2 {
                     String nomeDestinatario = result2.get("src").getAsString();
                     String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                     String publicKeyDH = result2.get("publicKeyDH").getAsString();
+                    String randomNumber = result2.get("randomNumber").getAsString();
 
                     System.out.println(">> " + nomeDestinatario + ": online");
                     System.out.println("Chave Publica RSA: " + publicKeyRSA);
                     System.out.println("Chave Publica DH: " + publicKeyDH);
+                    System.out.println("Valor Aleatorio: " + randomNumber);
                     System.out.println("");
                 } else {
                     String nomeDestinatario = result2.get("src").getAsString();
                     String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                     String publicKeyDH = result2.get("publicKeyDH").getAsString();
+                    String randomNumber = result2.get("randomNumber").getAsString();
 
                     String certificadoString = result2.get("certificadoCC").getAsString();
                     Certificate certificado = cc.getCertificateGivenString(certificadoString);
@@ -1135,6 +1129,8 @@ public class SecureChat2 {
                     System.out.println("Chave Publica RSA: " + publicKeyRSA);
                     System.out.println("Chave Publica DH: " + publicKeyDH);
                     System.out.println("Chave Publica CC: " + publicKeyCC);
+                    System.out.println("Valor Aleatorio: " + randomNumber);
+                    
                     System.out.println("");
                 }
 
@@ -1169,15 +1165,18 @@ public class SecureChat2 {
                 String nomeDestinatario = result2.get("src").getAsString();
                 String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                 String publicKeyDH = result2.get("publicKeyDH").getAsString();
+                String randomNumber = result2.get("randomNumber").getAsString();
 
                 System.out.println(">> " + nomeDestinatario + ": online");
                 System.out.println("Chave Publica RSA: " + publicKeyRSA);
                 System.out.println("Chave Publica DH: " + publicKeyDH);
+                System.out.println("Valor Aleatorio: " + randomNumber);
             } else {
                 String nomeDestinatario = result2.get("src").getAsString();
                 String publicKeyRSA = result2.get("publicKeyRSA").getAsString();
                 String publicKeyDH = result2.get("publicKeyDH").getAsString();
-
+                String randomNumber = result2.get("randomNumber").getAsString();
+                
                 String certificadoString = result2.get("certificadoCC").getAsString();
                 Certificate certificado = cc.getCertificateGivenString(certificadoString);
                 String publicKeyCC = cc.getPublicKeyStringGivenCertificate(certificado);
@@ -1186,6 +1185,7 @@ public class SecureChat2 {
                 System.out.println("Chave Publica RSA: " + publicKeyRSA);
                 System.out.println("Chave Publica DH: " + publicKeyDH);
                 System.out.println("Chave Publica CC: " + publicKeyCC);
+                System.out.println("Valor Aleatorio: " + randomNumber);
             }
 
         } else {
